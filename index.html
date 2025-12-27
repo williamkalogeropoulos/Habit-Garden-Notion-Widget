@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit Garden</title>
+    <!-- Pixel Art Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f7f6f3;
+            --text-color: #37352f;
+            --accent-color: #2e8b57;
+            --wither-color: #8b4513;
+            --water-color: #4fa4ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Layout --- */
+        #app-container {
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* --- Header --- */
+        header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .stats {
+            font-size: 0.7rem;
+            line-height: 1.5;
+            color: #666;
+        }
+
+        .health-bar-container {
+            width: 80px;
+            height: 10px;
+            background: #e0e0e0;
+            border: 2px solid #5d4037;
+            margin-top: 4px;
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .health-bar-fill {
+            height: 100%;
+            background: var(--accent-color);
+            width: 50%;
+            transition: width 0.5s, background-color 0.5s;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 1.2rem;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .settings-btn:hover { opacity: 1; }
+
+        /* --- Garden Display --- */
+        #garden-stage {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            background: linear-gradient(to bottom, #dbeafe 0%, #f0fdf4 100%);
+            border-bottom: 8px solid #3e2723; /* Ground line */
+            overflow: hidden;
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* --- Controls --- */
+        #controls {
+            background: #fff;
+            padding: 20px;
+            border-top: 2px solid #eee;
+            min-height: 250px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            font-size: 0.8rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .habit-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .habit-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            transition: all 0.2s;
+            background: #fff;
+        }
+
+        .habit-item:hover {
+            border-color: #bcebc0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 0 #eee;
+        }
+
+        .habit-item:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .habit-item.completed {
+            background: #f0fdf4;
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #555;
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #fff;
+        }
+
+        .habit-item.completed .checkbox {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .habit-item.completed .checkbox::after {
+            content: '✓';
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .habit-text {
+            font-size: 0.75rem;
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* --- Settings Modal --- */
+        #settings-modal {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.98);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            padding: 30px;
+            justify-content: center;
+        }
+
+        #settings-modal.active { display: flex; }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        /* --- Updated Settings Styles --- */
+        #settings-inputs {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding-right: 5px; /* Space for scrollbar */
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .input-row input {
+            margin-top: 0;
+            flex-grow: 1;
+        }
+
+        .btn-remove {
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 32px;
+            height: 38px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .btn-remove:hover { background: #d32f2f; }
+
+        .btn-add {
+            background: #2e8b57;
+            width: 100%;
+            margin-top: 0;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 0.8rem;
+        }
+        .btn-add:hover { background: #1b5e20; }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 0.7rem;
+            border: 2px solid #333;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        .btn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 15px;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 10px;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .btn:hover { background: #555; }
+        .btn-secondary { background: #eee; color: #333; }
+
+        /* --- Toast --- */
+        #message-toast {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(46, 139, 87, 0.9);
+            color: #fff;
+            padding: 10px 16px;
+            font-size: 0.7rem;
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.3s, top 0.3s;
+            pointer-events: none;
+            z-index: 20;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <header>
+        <div class="stats">
+            <div>DAY <span id="streak-display">1</span></div>
+            <div class="health-bar-container">
+                <div id="health-bar" class="health-bar-fill"></div>
+            </div>
+        </div>
+        <button class="settings-btn" id="open-settings">⚙️</button>
+    </header>
+
+    <div id="message-toast"></div>
+
+    <div id="garden-stage">
+        <canvas id="game-canvas" width="320" height="320"></canvas>
+    </div>
+
+    <div id="controls">
+        <h2>Daily Tasks</h2>
+        <div class="habit-list" id="habit-list"></div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal">
+        <h2 style="color:#333; font-size:1rem;">Edit Habits</h2>
+        <p style="font-size: 0.6rem; color: #666; margin-bottom: 20px;">Leave blank to remove.</p>
+        <div id="settings-inputs"></div>
+        <button class="btn" id="save-settings">Save Garden</button>
+        <button class="btn btn-secondary" id="close-settings">Cancel</button>
+        <button class="btn btn-secondary" style="margin-top:20px; background:#fee2e2; color:#ef4444;" id="reset-data">Reset All Data</button>
+    </div>
+</div>
+
+<script>
+/**
+ * HABIT GARDEN - UPDATED (V3)
+ * Features: Realistic Art, Connected Pot, Daily Blooming
+ */
+
+// --- Constants & Config ---
+// MAX_HABITS removed to allow unlimited tasks
+const STORAGE_KEY = 'habit_garden_data_v3'; 
+
+// --- Improved Palette (16 colors) ---
+const PALETTE = {
+    0: null,
+    // Pot
+    1: '#3e2723', // Darkest Brown (Outline/Inside)
+    2: '#5d4037', // Shadow
+    3: '#8d6e63', // Mid Terracotta
+    4: '#a1887f', // Highlight
+    5: '#2d1e1a', // Soil Dark
+    // Greenery
+    6: '#1b5e20', // Dark Green (Stem/Shadow)
+    7: '#2e7d32', // Mid Green
+    8: '#66bb6a', // Light Green
+    // Flower
+    9: '#880e4f', // Deep Pink/Red Shadow
+    10: '#d81b60', // Mid Pink
+    11: '#ff4081', // Bright Pink
+    12: '#f50057', // Accent
+    13: '#ffeb3b', // Yellow Center
+    // Water
+    14: '#29b6f6',
+    // Dead
+    15: '#795548'
+};
+
+// --- Realistic Sprites (16x16) ---
+// Designed to connect: Pot rim is around row 6-7 from bottom.
+const SPRITES = {
+    // A nice terracotta pot with a rim
+    pot: [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0], // Rim Top
+        [0,1,3,3,3,3,3,3,3,3,3,3,3,3,1,0], // Rim Face
+        [0,1,4,4,4,4,4,4,4,4,4,4,4,4,1,0], // Rim Highlight
+        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0], // Rim Shadow
+        [0,0,1,3,3,3,3,3,3,3,3,3,3,1,0,0], // Body
+        [0,0,1,3,3,3,3,3,3,3,3,3,3,1,0,0],
+        [0,0,1,2,2,3,3,3,3,3,3,2,2,1,0,0],
+        [0,0,1,2,2,2,2,2,2,2,2,2,2,1,0,0], // Body Shadow
+        [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0]  // Base
+    ],
+    // Tiny green nub
+    seedling: [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,1,8,1,0,0,0,0,0,0], // Leaf tip
+        [0,0,0,0,0,0,0,1,7,1,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,1,7,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,5,5,5,5,5,1,0,0,0,0], // Dirt mound
+        [0,0,0,0,0,0,0,5,5,5,0,0,0,0,0,0]
+    ],
+    // Two small leaves
+    sprout: [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0],
+        [0,0,0,1,8,1,0,0,0,1,8,1,0,0,0,0],
+        [0,0,0,1,8,7,1,0,1,7,8,1,0,0,0,0],
+        [0,0,0,0,1,7,6,1,6,7,1,0,0,0,0,0],
+        [0,0,0,0,0,1,7,6,7,1,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0], // Stem
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0], // Stem bottom
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0]  // Connects to dirt
+    ],
+    // Lush leaves
+    plant: [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,1,8,8,1,0,0,1,1,0,0,0],
+        [0,0,0,0,1,8,8,7,8,1,1,8,8,1,0,0],
+        [0,0,0,1,8,7,7,6,7,8,8,7,7,1,0,0],
+        [0,0,0,1,7,6,6,6,6,7,7,6,1,0,0,0],
+        [0,0,1,7,6,6,6,6,6,6,6,6,1,0,0,0],
+        [0,0,1,6,6,6,1,6,1,6,6,6,1,0,0,0],
+        [0,0,0,1,1,1,6,6,6,1,1,1,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0,0]
+    ],
+    // Big beautiful flower
+    flower: [
+        [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
+        [0,0,0,0,0,1,10,11,10,1,0,0,0,0,0],
+        [0,0,0,0,1,10,11,12,11,10,1,0,0,0,0],
+        [0,0,0,1,10,11,13,13,11,10,1,0,0,0], // Petals + Center
+        [0,0,0,1,9,10,13,13,10,9,1,0,0,0],
+        [0,0,0,0,1,9,10,10,9,1,0,0,0,0,0],
+        [0,0,0,0,0,1,9,9,9,1,0,0,0,0,0,0],
+        [0,0,0,1,1,0,1,6,1,0,1,1,0,0,0], // Leaves start
+        [0,0,1,8,7,1,1,6,1,1,7,8,1,0,0],
+        [0,0,1,7,6,6,6,6,6,6,6,7,1,0,0],
+        [0,0,0,1,1,6,6,6,6,6,1,1,0,0,0],
+        [0,0,0,0,0,1,6,6,6,1,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0], // Stem bottom
+        [0,0,0,0,0,0,1,6,1,0,0,0,0,0,0]
+    ]
+};
+
+// --- State Management ---
+const defaultState = {
+    habits: ["Drink Water", "Read 10 mins", "Exercise"],
+    completedToday: [], // Array of indices
+    lastLoginDate: new Date().toDateString(),
+    streak: 0,
+    health: 50, // 0 to 100
+    growth: 0   // 0 to 100
+};
+
+let state = JSON.parse(JSON.stringify(defaultState)); 
+
+// --- Logic ---
+
+function loadState() {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        try {
+            const parsed = JSON.parse(stored);
+            state = { ...defaultState, ...parsed };
+        } catch (e) {
+            console.error("Save file corrupted, resetting.");
+        }
+    }
+    checkDateRollover();
+}
+
+function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    updateUI();
+}
+
+function checkDateRollover() {
+    const today = new Date().toDateString();
+    if (state.lastLoginDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (state.lastLoginDate !== yesterday.toDateString()) {
+            // Missed more than one day -> broken streak
+            state.streak = 0;
+            state.health = Math.max(0, state.health - 25);
+            showToast("You missed the garden!");
+        } 
+        
+        // Minor daily decay
+        state.health = Math.max(0, state.health - 5); 
+        state.completedToday = []; // Reset checkboxes
+        state.lastLoginDate = today;
+        saveState();
+    }
+}
+
+function toggleHabit(index) {
+    const idx = state.completedToday.indexOf(index);
+    if (idx > -1) {
+        state.completedToday.splice(idx, 1);
+    } else {
+        state.completedToday.push(index);
+        
+        // Rewards
+        state.health = Math.min(100, state.health + 10);
+        state.growth = Math.min(100, state.growth + 5);
+        triggerWateringAnimation();
+        
+        // Check for daily completion
+        if (state.completedToday.length === state.habits.length && state.habits.length > 0) {
+            state.streak++;
+            showToast("Garden Watered! + Streak");
+            triggerConfetti();
+        }
+    }
+    saveState();
+}
+
+function updateHabits(newHabits) {
+    state.habits = newHabits.filter(h => h.trim() !== "");
+    state.completedToday = state.completedToday.filter(i => i < state.habits.length);
+    saveState();
+    renderHabitList();
+}
+
+function resetData() {
+    if(confirm("Reset all your progress?")) {
+        state = JSON.parse(JSON.stringify(defaultState));
+        saveState();
+        location.reload();
+    }
+}
+
+// --- UI Rendering ---
+
+const ui = {
+    streak: document.getElementById('streak-display'),
+    healthBar: document.getElementById('health-bar'),
+    habitList: document.getElementById('habit-list'),
+    settingsModal: document.getElementById('settings-modal'),
+    settingsInputs: document.getElementById('settings-inputs'),
+    toast: document.getElementById('message-toast')
+};
+
+function showToast(msg) {
+    ui.toast.textContent = msg;
+    ui.toast.style.opacity = 1;
+    ui.toast.style.top = "80px";
+    setTimeout(() => {
+        ui.toast.style.opacity = 0;
+        ui.toast.style.top = "70px";
+    }, 2000);
+}
+
+function updateUI() {
+    ui.streak.textContent = state.streak;
+    
+    // Health Bar Color Logic
+    let color = 'var(--accent-color)';
+    if (state.health < 30) color = '#e74c3c';
+    else if (state.health < 60) color = '#fbc02d';
+    
+    ui.healthBar.style.width = `${state.health}%`;
+    ui.healthBar.style.backgroundColor = color;
+    
+    renderHabitList();
+}
+
+function renderHabitList() {
+    ui.habitList.innerHTML = '';
+    state.habits.forEach((habit, index) => {
+        const isDone = state.completedToday.includes(index);
+        
+        const el = document.createElement('div');
+        el.className = `habit-item ${isDone ? 'completed' : ''}`;
+        el.onclick = () => toggleHabit(index);
+        
+        el.innerHTML = `
+            <div class="checkbox"></div>
+            <div class="habit-text">${habit}</div>
+        `;
+        ui.habitList.appendChild(el);
+    });
+}
+
+// --- Canvas / Game Engine ---
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function drawSprite(spriteKey, x, y, scale = 10, wither = false) {
+    const sprite = SPRITES[spriteKey];
+    if (!sprite) return;
+    
+    for (let r = 0; r < sprite.length; r++) {
+        for (let c = 0; c < sprite[r].length; c++) {
+            let colorIndex = sprite[r][c];
+            if (colorIndex !== 0) {
+                let color = PALETTE[colorIndex];
+                
+                // Wither Effect: Replace lively greens/pinks with dry brown
+                if (wither) {
+                    // Indices 6-13 are plants/flowers
+                    if (colorIndex >= 6 && colorIndex <= 13) {
+                        color = PALETTE[15]; 
+                    }
+                }
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(x + c * scale, y + r * scale, scale, scale);
+            }
+        }
+    }
+}
+
+function triggerWateringAnimation() {
+    for(let i=0; i<15; i++) {
+        particles.push({
+            x: 160 + (Math.random() * 40 - 20),
+            y: 100,
+            vy: 2 + Math.random() * 3,
+            type: 'water',
+            life: 60
+        });
+    }
+}
+
+function triggerConfetti() {
+    for(let i=0; i<40; i++) {
+        particles.push({
+            x: 160,
+            y: 200,
+            vx: Math.random() * 10 - 5,
+            vy: -(Math.random() * 10 + 5),
+            color: `hsl(${Math.random()*360}, 80%, 60%)`,
+            type: 'confetti',
+            life: 120
+        });
+    }
+}
+
+function renderGarden() {
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, w, h);
+
+    // Determines Stage based on Daily Progress
+    let currentSprite = 'seedling';
+    
+    const total = state.habits.length;
+    const completed = state.completedToday.length;
+    const progress = total === 0 ? 0 : completed / total;
+
+    if (state.health <= 0) {
+        currentSprite = 'seedling'; 
+    } else if (progress === 1) {
+        currentSprite = 'flower';
+    } else if (progress >= 0.5) {
+        currentSprite = 'plant';
+    } else if (progress > 0) {
+        currentSprite = 'sprout';
+    } else {
+        currentSprite = 'seedling';
+    }
+
+    const isWithered = state.health < 20;
+    const scale = 10;
+    const centerX = (w / 2) - (8 * scale); 
+    const groundY = h - (16 * scale);
+
+    // Coordinate Fix: Overlap the plant sprite so it sits "inside" the pot rim
+    // The pot sprite has a rim at roughly row 8 (from top).
+    // The plant sprites have stems ending at row 15 (bottom).
+    // We want plant bottom (row 15) to hit pot row 8.
+    // So plantY + 15*scale = groundY + 8*scale
+    // plantY = groundY + 8*scale - 15*scale = groundY - 7*scale
+    let plantY = groundY - (7 * scale);
+    
+    const bob = Math.sin(Date.now() / 600) * 3;
+    
+    if (currentSprite !== 'pot') {
+       drawSprite(currentSprite, centerX, plantY + bob, scale, isWithered);
+    }
+    
+    drawSprite('pot', centerX, groundY, scale);
+
+    updateAndDrawParticles();
+    requestAnimationFrame(renderGarden);
+}
+
+function updateAndDrawParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.life--;
+        
+        if (p.type === 'water') {
+            p.y += p.vy;
+            ctx.fillStyle = PALETTE[14];
+            ctx.fillRect(p.x, p.y, 4, 4);
+        } else if (p.type === 'confetti') {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.4;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, 5, 5);
+        }
+
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
+
+// --- Initialization ---
+
+// Helper to create input row
+function createHabitRow(value = "") {
+    const div = document.createElement('div');
+    div.className = 'input-row';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.placeholder = "Enter habit...";
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.innerHTML = '×';
+    removeBtn.title = "Remove habit";
+    removeBtn.onclick = () => div.remove();
+    
+    div.appendChild(input);
+    div.appendChild(removeBtn);
+    return div;
+}
+
+document.getElementById('open-settings').onclick = () => {
+    ui.settingsInputs.innerHTML = '';
+    
+    // Add existing habits
+    state.habits.forEach(habit => {
+        ui.settingsInputs.appendChild(createHabitRow(habit));
+    });
+
+    // Add "Add Habit" button at the bottom of the list
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-add';
+    addBtn.innerHTML = '+ Add Habit';
+    addBtn.onclick = () => {
+        // Insert new row before the add button
+        ui.settingsInputs.insertBefore(createHabitRow(), addBtn);
+        // Scroll to bottom
+        ui.settingsInputs.scrollTop = ui.settingsInputs.scrollHeight;
+    };
+    ui.settingsInputs.appendChild(addBtn);
+
+    // If list is empty, add one empty row by default
+    if (state.habits.length === 0) {
+        ui.settingsInputs.insertBefore(createHabitRow(), addBtn);
+    }
+
+    ui.settingsModal.classList.add('active');
+};
+
+document.getElementById('close-settings').onclick = () => {
+    ui.settingsModal.classList.remove('active');
+};
+
+document.getElementById('save-settings').onclick = () => {
+    const inputs = ui.settingsInputs.querySelectorAll('input');
+    const newHabits = Array.from(inputs).map(inp => inp.value);
+    updateHabits(newHabits);
+    ui.settingsModal.classList.remove('active');
+    updateUI(); 
+};
+
+document.getElementById('reset-data').onclick = resetData;
+
+loadState();
+updateUI();
+requestAnimationFrame(renderGarden);
+
+</script>
+</body>
+</html>
